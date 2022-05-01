@@ -28,7 +28,7 @@ P = np.eye(3, 4)
 failed_coords = []
 movement = []
 dists = []
-prev_pose = np.ones(4)
+prev_pose = np.arange(5)[1:]
 while(True):
       
     # Capture the video frame
@@ -46,18 +46,17 @@ while(True):
 
     if len(keypoints):
         kp = keypoints[0]
-        ball_xy = np.array([int(kp.pt[0]), int(kp.pt[1])])
-        diff = origin - ball_xy
+        ball_xy = np.array([kp.pt[0], kp.pt[1]])
 
         
         dist = size_to_dist(kp.size/2)
         dists += [dist]
         
 
-        cam_coord = K_inv@np.array([[ball_xy[0]-origin[0]],
-                              [origin[1]-ball_xy[1]],
+        cam_coord = K_inv@np.array([[ball_xy[0]],
+                              [ball_xy[1]],
                               [1]])
-        # print(cam_coord)
+        print(cam_coord)
 
 
         opti = Opti()
@@ -65,7 +64,9 @@ while(True):
         init_world_coord = prev_pose
         obj = mtimes((cam_coord - mtimes(P, world_coord)).T, (cam_coord - mtimes(P, world_coord)))
         opti.minimize(obj)
-        opti.subject_to([pow(world_coord[0]/world_coord[3], 2) + pow(world_coord[1]/world_coord[3], 2) + pow(world_coord[2]/world_coord[3], 2) == dist])
+        opti.subject_to([pow(world_coord[0], 2) + pow(world_coord[1], 2) + pow(world_coord[2], 2) == dist*dist,
+                         world_coord[3] == 1,
+                         world_coord[2] >= 0])
         opti.set_initial(world_coord, init_world_coord)
         ###### CONSTRUCT SOLVER AND SOLVE ######
         opti.solver('ipopt')
@@ -75,7 +76,7 @@ while(True):
         try:
             sol = opti.solve()
             world_coord_val = sol.value(world_coord)
-            movement += [world_coord_val/world_coord_val[3]]
+            movement += [world_coord_val]
             prev_pose = world_coord_val
             # print(world_coord_val)
         except:
@@ -101,7 +102,7 @@ ax = plt.axes(projection='3d')
 full_data = np.array(movement)
 print(full_data)
 # print(dists)
-ax.plot3D(full_data[:,0], full_data[:,1], full_data[:,2], 'gray')
+ax.plot3D(full_data[5:,0], full_data[5:,1], full_data[5:,2], 'gray')
 ax.set_xlabel('x')
 ax.set_ylabel('y')
 ax.set_zlabel('z')
