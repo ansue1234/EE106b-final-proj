@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from grip import GripPipeline
+from casadi import Opti, sin, cos, tan, vertcat, mtimes, sumsqr, sum1, MX, dot
+from mpl_toolkits import mplot3d
 
 # define a video capture object
 vid = cv2.VideoCapture(0)
@@ -14,9 +16,19 @@ size_to_dist = lambda a: 0.01714102+15.74211494/a
 # x = np.vstack((np.ones(len(x)), x))
 # print(x.T)
 
+K = np.array([[986.6706666,    0.,         621.32655332],
+              [  0.   ,      990.28821391 ,362.52608586],
+              [  0.    ,       0.      ,     1.        ]])
+K_inv = np.linalg.inv(K)
+P = np.eye(3, 4)
+
 # print(np.linalg.lstsq(x.T, y))
 # plt.plot(x, y)
 # plt.show()
+failed_coords = []
+movement = []
+dists = []
+prev_pose = np.ones(4)
 while(True):
       
     # Capture the video frame
@@ -26,17 +38,51 @@ while(True):
     # Display the resulting frame
     
     processor.process(frame)
-    origin = np.array([frame.shape[0], frame.shap[1]])
+    origin = np.array([frame.shape[0]//2, frame.shape[1]//2])
 
     keypoints = [max(processor.find_blobs_output, key =lambda a: a.size)] if len(processor.find_blobs_output) else []
     im_with_keypoints = cv2.drawKeypoints(frame, keypoints, np.array([]), (0,255,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-    # the 'q' button is set as the
-    for kp in keypoints:
-        ball_xy = np.array([kp.pt[0], kp.pt[1]])
+    # the 'q' button is set as thes
+
+    if len(keypoints):
+        kp = keypoints[0]
+        ball_xy = np.array([int(kp.pt[0]), int(kp.pt[1])])
         diff = origin - ball_xy
+
         
         dist = size_to_dist(kp.size/2)
-        print(dist)
+        dists += [dist]
+        
+
+        cam_coord = K_inv@np.array([[ball_xy[0]-origin[0]],
+                              [origin[1]-ball_xy[1]],
+                              [1]])
+        # print(cam_coord)
+
+
+        opti = Opti()
+        world_coord = opti.variable(4)
+        init_world_coord = prev_pose
+        obj = mtimes((cam_coord - mtimes(P, world_coord)).T, (cam_coord - mtimes(P, world_coord)))
+        opti.minimize(obj)
+        opti.subject_to([pow(world_coord[0]/world_coord[3], 2) + pow(world_coord[1]/world_coord[3], 2) + pow(world_coord[2]/world_coord[3], 2) == dist])
+        opti.set_initial(world_coord, init_world_coord)
+        ###### CONSTRUCT SOLVER AND SOLVE ######
+        opti.solver('ipopt')
+        p_opts = {"expand": False, "print_time": False, "ipopt": {"print_level": 0}}
+        s_opts = {"max_iter": 1e3}
+        opti.solver('ipopt', p_opts, s_opts)
+        try:
+            sol = opti.solve()
+            world_coord_val = sol.value(world_coord)
+            movement += [world_coord_val/world_coord_val[3]]
+            prev_pose = world_coord_val
+            # print(world_coord_val)
+        except:
+            failed_coords += [cam_coord]
+            print(cam_coord)
+        # print(world_coord_val/world_coord_val[3])
+
     cv2.imshow('frame', im_with_keypoints)
     
     # quitting button you may use any
@@ -48,7 +94,15 @@ while(True):
 vid.release()
 # Destroy all the windows
 cv2.destroyAllWindows()
+print(failed_coords)
 
-# plt.plot(np.arange(len(area)), area)
-# plt.show()
-
+fig = plt.figure()
+ax = plt.axes(projection='3d')
+full_data = np.array(movement)
+print(full_data)
+# print(dists)
+ax.plot3D(full_data[:,0], full_data[:,1], full_data[:,2], 'gray')
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_zlabel('z')
+plt.show()
