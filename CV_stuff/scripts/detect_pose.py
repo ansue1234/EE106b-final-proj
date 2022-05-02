@@ -29,6 +29,7 @@ failed_coords = []
 movement = []
 dists = []
 prev_pose = np.arange(5)[1:]
+offset = np.array([0.02, 0.08, 0, 0])
 while(True):
       
     # Capture the video frame
@@ -76,7 +77,7 @@ while(True):
         try:
             sol = opti.solve()
             world_coord_val = sol.value(world_coord)
-            movement += [world_coord_val]
+            movement += [world_coord_val + offset]
             prev_pose = world_coord_val
             # print(world_coord_val)
         except:

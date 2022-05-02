@@ -14,12 +14,12 @@ class GripPipeline:
 
         self.__hsv_threshold_hue = [0.0, 180.0]
         self.__hsv_threshold_saturation = [80.26079136690647, 255.0]
-        self.__hsv_threshold_value = [121.53776978417265, 255.0]
+        self.__hsv_threshold_value = [92.53776978417265, 255.0]
 
         self.hsv_threshold_output = None
 
         self.__find_blobs_input = self.hsv_threshold_output
-        self.__find_blobs_min_area = 80.0
+        self.__find_blobs_min_area = 200.0
         self.__find_blobs_circularity = [0.2, 1.0]
         self.__find_blobs_dark_blobs = False
 

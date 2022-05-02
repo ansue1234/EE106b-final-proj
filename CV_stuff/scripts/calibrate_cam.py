@@ -21,7 +21,7 @@ objp[0,:,:2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
 prev_img_shape = None
 
 # Extracting path of individual image stored in a given directory
-images = glob.glob('../images/calibration_qi/*.jpeg')
+images = glob.glob('../images/calibration/*.jpg')
 for fname in images:
     img = cv2.imread(fname)
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
@@ -59,7 +59,7 @@ detected corners (imgpoints)
 """
 
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
-
+print(len(rvecs))
 print("Camera matrix : \n")
 print(mtx)
 print("dist : \n")
