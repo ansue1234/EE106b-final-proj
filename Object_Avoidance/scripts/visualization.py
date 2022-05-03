@@ -16,7 +16,7 @@ def draw_trajectory(trajectory):
     ax.set_zlabel('z')
     plt.show()
 
-def draw_voxels(voxels, voxel_values, obstacle, target, origin, threshold=1.0):
+def draw_voxels(voxels, voxel_values, obstacle, target, origin, threshold=0):
     """
     voxels: nxnxn representation of space with confidence score in each voxel
     """
@@ -26,7 +26,7 @@ def draw_voxels(voxels, voxel_values, obstacle, target, origin, threshold=1.0):
 
     # combine the objects into a single boolean array
     voxelarray = voxel_values > threshold
-
+    print(voxel_vals)
     # voxelarray = np.ones(np.array([voxel_values.shape[0], voxel_values.shape[1], voxel_values.shape[2]]), dtype=bool)
     colors = np.zeros(np.array([voxel_values.shape[0], voxel_values.shape[1], voxel_values.shape[2], 4]))
     for i in range(voxel_values.shape[0]):
