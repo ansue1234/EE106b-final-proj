@@ -20,28 +20,83 @@ def confidence(object_pose, object_velocity, target_pose, t=1):
 
     return (confidence_x + confidence_y + confidence_z)/3.0
 
-def get_goal_pt(object_pose, object_velocity, drone_pose, resolution=11, look_ahead_dist=2.5, t=1, threshold=0.2):
-    voxel_grid = np.zeros((3, resolution, resolution, resolution))
-    confidence_grid = np.zeros((resolution, resolution, resolution))
+def get_goal_pt(object_pose, object_velocity, drone_pose, resolution=11, look_ahead_dist=2.5, t=1, threshold=0.2, visualize=True):
     dist_increment = look_ahead_dist*2/resolution
     origin = resolution//2
     drone_x, drone_y, drone_z = drone_pose[0], drone_pose[1], drone_pose[2]
     closest_voxel = np.array([np.inf, np.inf, np.inf])
-    for i in range(resolution):
-        for j in range(resolution):
-            for k in range(resolution):
-                delta_x = (i - origin)*dist_increment
-                delta_y = (j - origin)*dist_increment
-                delta_z = (origin - k)*dist_increment
-                voxel_pose = np.array([drone_x + delta_x, drone_y + delta_y, drone_z + delta_z])
-                voxel_confidence = confidence(object_pose, object_velocity, voxel_pose, t=t)
-                voxel_pt = np.array([delta_x, delta_y, delta_z])
-                voxel_grid[0][i][j][k] = (drone_pose + voxel_pt)[0]
-                voxel_grid[1][i][j][k] = (drone_pose + voxel_pt)[1]
-                voxel_grid[2][i][j][k] = (drone_pose + voxel_pt)[2]
-                confidence_grid[i][j][k] = voxel_confidence
-                if voxel_confidence < threshold:
-                    if np.linalg.norm(voxel_pt) < np.linalg.norm(closest_voxel):
-                        closest_voxel = voxel_pt
-                        # confidence_grid[i][j][k][3] = 1
-    return drone_pose + closest_voxel, voxel_grid, confidence_grid
+    if visualize:
+        voxel_grid = np.zeros((3, resolution, resolution, resolution))
+        confidence_grid = np.zeros((resolution, resolution, resolution))
+        for i in range(resolution):
+            for j in range(resolution):
+                for k in range(resolution):
+                    delta_x = (i - origin)*dist_increment
+                    delta_y = (j - origin)*dist_increment
+                    delta_z = (origin - k)*dist_increment
+                    voxel_pose = np.array([drone_x + delta_x, drone_y + delta_y, drone_z + delta_z])
+                    voxel_confidence = confidence(object_pose, object_velocity, voxel_pose, t=t)
+                    voxel_pt = np.array([delta_x, delta_y, delta_z])
+                    voxel_grid[0][i][j][k] = (drone_pose + voxel_pt)[0]
+                    voxel_grid[1][i][j][k] = (drone_pose + voxel_pt)[1]
+                    voxel_grid[2][i][j][k] = (drone_pose + voxel_pt)[2]
+                    confidence_grid[i][j][k] = voxel_confidence
+                    if voxel_confidence < threshold:
+                        if np.linalg.norm(voxel_pt) < np.linalg.norm(closest_voxel):
+                            closest_voxel = voxel_pt
+                            # confidence_grid[i][j][k][3] = 1
+        return drone_pose + closest_voxel, voxel_grid, confidence_grid
+    else:
+        voxel_grid = np.zeros((3, resolution, resolution, resolution))
+        confidence_grid = np.zeros((resolution, resolution, resolution))
+        queue = [(origin, origin, origin)]
+        closest_voxel = None
+        while len(queue):
+            i, j, k = queue[0]
+            queue = queue[1:]
+            if (i >= resolution or i < 0) or  (j >= resolution or j < 0) or (k >= resolution or k < 0):
+                continue
+            if confidence_grid[i][j][k] != -1:
+                continue
+            delta_x = (i - origin)*dist_increment
+            delta_y = (j - origin)*dist_increment
+            delta_z = (origin - k)*dist_increment 
+            voxel_pose = np.array([drone_x + delta_x, drone_y + delta_y, drone_z + delta_z])
+            voxel_confidence = confidence(object_pose, object_velocity, voxel_pose, t=t)
+            voxel_pt = np.array([delta_x, delta_y, delta_z])
+            voxel_grid[0][i][j][k] = voxel_pose[0]
+            voxel_grid[1][i][j][k] = voxel_pose[1]
+            voxel_grid[2][i][j][k] = voxel_pose[2]
+            confidence_grid[i][j][k] = voxel_confidence
+            if not closest_voxel and voxel_confidence <= threshold:
+                closest_voxel = voxel_pose
+            queue += [(i + 1, j + 1, k), (i + 1, j, k), (i + 1, j - 1, k),
+                      (i, j + 1, k), (i, j - 1, k),
+                      (i - 1, j + 1, k), (i - 1, j, k), (i - 1, j - 1, k),
+                      (i + 1, j + 1, k + 1), (i + 1, j, k + 1), (i + 1, j - 1, k + 1),
+                      (i, j + 1, k + 1), (i, j, k + 1), (i, j - 1, k + 1),
+                      (i - 1, j + 1, k + 1), (i - 1, j, k + 1), (i - 1, j - 1, k + 1),
+                      (i + 1, j + 1, k - 1), (i + 1, j, k - 1), (i + 1, j - 1, k - 1),
+                      (i, j + 1, k - 1), (i, j, k - 1), (i, j - 1, k - 1),
+                      (i - 1, j + 1, k - 1), (i - 1, j, k - 1), (i - 1, j - 1, k - 1),
+                      ]
+            
+
+        # for i in range(resolution):
+        #     for j in range(resolution):
+        #         for k in range(resolution):
+        #             delta_x = (i - origin)*dist_increment
+        #             delta_y = (j - origin)*dist_increment
+        #             delta_z = (origin - k)*dist_increment
+        #             voxel_pose = np.array([drone_x + delta_x, drone_y + delta_y, drone_z + delta_z])
+        #             voxel_confidence = confidence(object_pose, object_velocity, voxel_pose, t=t)
+        #             voxel_pt = np.array([delta_x, delta_y, delta_z])
+        #             voxel_grid[0][i][j][k] = (drone_pose + voxel_pt)[0]
+        #             voxel_grid[1][i][j][k] = (drone_pose + voxel_pt)[1]
+        #             voxel_grid[2][i][j][k] = (drone_pose + voxel_pt)[2]
+        #             confidence_grid[i][j][k] = voxel_confidence
+        #             if voxel_confidence < threshold:
+        #                 if np.linalg.norm(voxel_pt) < np.linalg.norm(closest_voxel):
+        #                     closest_voxel = voxel_pt
+        #                     # confidence_grid[i][j][k][3] = 1
+        return closest_voxel, voxel_grid, confidence_grid
