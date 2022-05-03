@@ -33,6 +33,7 @@ from utils.torch_utils import torch_distributed_zero_first
 
 # for ros topic
 from cv_bridge import CvBridge
+import rospy
 
 # Parameters
 HELP_URL = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'

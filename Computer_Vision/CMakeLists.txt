@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   tf
+  cv_bridge
 )
 
 ## System dependencies are found with CMake's conventions
@@ -110,7 +111,9 @@ catkin_package(
  CATKIN_DEPENDS Obstacle_Avoidance geometry_msgs rospy std_msgs tf
 #  DEPENDS system_lib
 )
-
+catkin_install_python(PROGRAMS yolo/detect.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 ###########
 ## Build ##
 ###########

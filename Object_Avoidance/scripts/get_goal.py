@@ -1,5 +1,8 @@
 import numpy as np
 from scipy.stats import norm
+from geometry_msgs import Twist
+from geometry_msgs import Pose
+from Object_Avoidance import ObjectStateMsg
 
 def confidence(object_pose, object_velocity, target_pose, t=1):
     obj_x, obj_y, obj_z = object_pose[0], object_pose[1], object_pose[2]
@@ -79,3 +82,7 @@ def get_goal_pt(object_pose, object_velocity, drone_pose, resolution=11, look_ah
                       (i - 1, j + 1, k), (i - 1, j, k), (i - 1, j - 1, k),
                       ]
         return closest_voxel
+
+# def compute_twist(pos_1, pos_2, t=1):
+#     pos
+    
