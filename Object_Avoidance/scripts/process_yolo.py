@@ -11,8 +11,32 @@ from mpl_toolkits import mplot3d
 from std_msgs.msg import Int8 
 from darknet_ros_msgs.msg import BoundingBoxes
 from sensor_msgs.msg import Image
+from geometry_msgs import Twist
+from geometry_msgs import Pose
+from Object_Avoidance import ObjectStateMsg
+import time
+
+# information for trajectory plotting
+K = np.array([[983.24210558  , 0.     ,    549.07355146],
+[  0.      ,   984.67352261, 368.2628812 ],
+[  0.     ,      0.     ,      1.        ]])
+K_inv = np.linalg.inv(K)
+P = np.eye(3, 4)
+size_to_dist = lambda a: 0.01714102+15.74211494/a
+
+failed_coords = []
+movement = []
+dists = []
+prev_pose = np.arange(5)[1:]
+offset = np.array([0.02, 0.08, 0, 0])
+prev_time = time.time()
 
 
+published_msg = ObjectStateMsg()
+msg_twist = Twist()
+msg_pose = Pose()
+published_msg.object_vel = msg_twist
+published_msg.object_pos = msg_pose
 
 def print_number_objects(data) :
     print("There are %d objects in this image", data.count)
@@ -74,7 +98,22 @@ def process_bounding_boxes(data):
                 sol = opti.solve()
                 world_coord_val = sol.value(world_coord)
                 movement += [world_coord_val + offset]
+
+                msg_twist = Twist()
+                msg_twist.linear.x = (world_coord_val - prev_pose)[0]/(time.time() - prev_time)
+                msg_twist.linear.y = (world_coord_val - prev_pose)[1]/(time.time() - prev_time)
+                msg_twist.linear.z = (world_coord_val - prev_pose)[2]/(time.time() - prev_time)
+                msg_pose = Pose()
+                msg_pose.position.x = world_coord_val[0]
+                msg_pose.position.y = world_coord_val[1]
+                msg_pose.position.z = world_coord_val[2]
+
+                published_msg.object_vel = msg_twist
+                published_msg.object_pos = msg_pose
+
                 prev_pose = world_coord_val
+
+                
                 # print(world_coord_val)
             except:
                 failed_coords += [cam_coord]
@@ -86,29 +125,19 @@ def display_image(data):
     
 
 
-# information for trajectory plotting
-K = np.array([[983.24210558  , 0.     ,    549.07355146],
-[  0.      ,   984.67352261, 368.2628812 ],
-[  0.     ,      0.     ,      1.        ]])
-K_inv = np.linalg.inv(K)
-P = np.eye(3, 4)
-size_to_dist = lambda a: 0.01714102+15.74211494/a
 
-failed_coords = []
-movement = []
-dists = []
-prev_pose = np.arange(5)[1:]
-offset = np.array([0.02, 0.08, 0, 0])
 
 
 
 
 rospy.init_node('process_yolo')
+broadcast = rospy.Publisher('obj_states', ObjectStateMsg, queue_size = 1) 
 try: 
     print("listening")
     rospy.Subscriber("/darknet_ros/object_detector", Int8, print_number_objects)
     rospy.Subscriber("/darknet_ros/bounding_boxes", BoundingBoxes, process_bounding_boxes)
     rospy.Subscriber("/darknet_ros/detection_image", Image, display_image)
+    broadcast.publish(published_msg)
     rospy.spin()
 except KeyboardInterrupt:
     print("Ending")
