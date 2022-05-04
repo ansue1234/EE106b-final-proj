@@ -1,8 +1,14 @@
 import numpy as np
 from scipy.stats import norm
-from geometry_msgs import Twist
-from geometry_msgs import Pose
-from Object_Avoidance import ObjectStateMsg
+from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Pose
+from Object_Avoidance.msg import ObjectStateMsg
+import rospy 
+
+obj_pose = None
+obj_vel = None
+updated = False
+counter = 0
 
 def confidence(object_pose, object_velocity, target_pose, t=1):
     obj_x, obj_y, obj_z = object_pose[0], object_pose[1], object_pose[2]
@@ -70,6 +76,8 @@ def get_goal_pt(object_pose, object_velocity, drone_pose, resolution=11, look_ah
             visited[i][j][k] = 1
             if not assigned and (voxel_confidence <= threshold):
                 closest_voxel = voxel_pose
+                print("confidence at origin", confidence(object_pose, object_velocity, np.array([0, 0, 0]), t=t) )
+                print("confidence", voxel_confidence)
                 break
             queue += [(i + 1, j + 1, k - 1), (i + 1, j, k - 1), (i + 1, j - 1, k - 1),
                       (i, j + 1, k - 1), (i, j, k - 1), (i, j - 1, k - 1),
@@ -83,6 +91,71 @@ def get_goal_pt(object_pose, object_velocity, drone_pose, resolution=11, look_ah
                       ]
         return closest_voxel
 
-# def compute_twist(pos_1, pos_2, t=1):
-#     pos
-    
+def compute_twist(pos_1, pos_2, t=1):
+    vel = (pos_2 - pos_1)/t
+    if np.max(np.abs(vel)):
+        vel = vel/np.max(np.abs(vel))
+    vel_to_send = Twist()
+    vel_to_send.linear.x = vel[0]
+    vel_to_send.linear.y = vel[1]
+    vel_to_send.linear.z = vel[2]
+
+    return vel_to_send
+
+def callback(msg):
+    global obj_pose
+    global obj_vel
+    global updated
+    obj_vel = msg.object_vel
+    obj_pose = msg.object_pos
+    updated = True
+
+def send_twist(pub, delay=10):
+    global counter
+    global updated
+    print("running", counter)
+    global obj_pose
+    global obj_vel
+    escape_twist = None
+    if obj_pose:
+        o_p = np.array([obj_pose.position.x, obj_pose.position.y, obj_pose.position.z])
+        o_v = np.array([obj_vel.linear.x, obj_vel.linear.y, obj_vel.linear.z])
+        target = get_goal_pt(o_p, o_v, np.array([0, 0, 0]), visualize=False)
+        escape_twist = compute_twist(np.array([0, 0, 0]), target)
+    if updated:
+        print("updating")
+        pub.publish(escape_twist)
+        counter = 0
+        updated = False
+    elif counter <= delay and escape_twist:
+        print("moving")
+        pub.publish(escape_twist)
+    elif counter > delay:
+        print("hovering")
+        do_nothing = Twist()
+        pub.publish(do_nothing)
+
+
+if __name__ == '__main__':
+    rospy.init_node('escape', anonymous=True)
+    try:
+        pub = rospy.Publisher('/bebop/cmd_vel', Twist, queue_size=10)
+        # Create a timer object that will sleep long enough to result in a 10Hz
+        # publishing rate
+        r = rospy.Rate(10) # 10hz
+        rospy.Subscriber("/obj_states", ObjectStateMsg, callback)
+        # Loop until the node is killed with Ctrl-C
+        while not rospy.is_shutdown():
+            # Construct a string that we want to publish (in Python, the "%"
+            # operator functions similarly to sprintf in C or MATLAB)
+            # Publish our string to the 'chatter_talk' topic
+            
+            # Use our rate object to sleep until it is time to publish again
+            counter += 1
+            send_twist(pub)
+            # r.spinOnce()
+            r.sleep()
+    except rospy.ROSInterruptException:
+        pass
+
+

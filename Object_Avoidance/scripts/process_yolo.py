@@ -24,7 +24,7 @@ def process_bounding_boxes(data):
     global movement
     global failed_coords
     global prev_pose
-    
+
     for bbox in data.bounding_boxes:
         x1 = bbox.xmin
         y1 = bbox.ymin

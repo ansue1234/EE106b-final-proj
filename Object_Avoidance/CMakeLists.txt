@@ -77,6 +77,9 @@ generate_messages(
   std_msgs  # Or other packages containing msgs
   geometry_msgs
 )
+catkin_install_python(PROGRAMS scripts/process_yolo.py scripts/get_goal.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
