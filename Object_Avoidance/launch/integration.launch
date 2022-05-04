@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+  <include file="$(find darknet_ros)/launch/darknet_ros.launch"/>
+  <include file="$(find bebop_driver)/launch/bebop_node.launch"/>
+  <node pkg="Object_Avoidance" type="process_yolo.py" name="process_yolo" output="screen"/>
+  <!-- <node pkg="Object_Avoidance" type="get_goal.py" name="escape" output="screen"/> -->
+</launch>

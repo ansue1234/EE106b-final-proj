@@ -1,14 +1,76 @@
+#!/usr/bin/env python
+
 import numpy as np
 from scipy.stats import norm
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Pose
 from Object_Avoidance.msg import ObjectStateMsg
+from scipy.spatial.transform import Rotation
+import tf
 import rospy 
 
 obj_pose = None
 obj_vel = None
 updated = False
 counter = 0
+
+def create_transform_matrix(rotation_matrix, translation_vector):
+    """
+    Creates a homogenous 4x4 matrix representation of this transform
+    Parameters
+    ----------
+    rotation_matrix (3x3 np.ndarray): Rotation between two frames
+    translation_vector (3x np.ndarray): Translation between two frames
+    """
+    return np.r_[np.c_[rotation_matrix, translation_vector],[[0, 0, 0, 1]]]
+
+def rotation_from_quaternion(q_wxyz):
+    """Convert quaternion array to rotation matrix.
+    Parameters
+    ----------
+    q_wxyz : :obj:`numpy.ndarray` of float
+        A quaternion in wxyz order.
+    Returns
+    -------
+    :obj:`numpy.ndarray` of float
+        A 3x3 rotation matrix made from the quaternion.
+    """
+    q_xyzw = np.array([q_wxyz[1], q_wxyz[2], q_wxyz[3], q_wxyz[0]])
+
+    r = Rotation.from_quat(q_xyzw)
+    try:
+        mat = r.as_dcm()
+    except:
+        mat = r.as_matrix()
+    return mat
+
+def lookup_transform(to_frame, from_frame='base'):
+    """
+    Returns the AR tag position in world coordinates 
+    Parameters
+    ----------
+    to_frame : string
+        examples are: ar_marker_7, nozzle, pawn, ar_marker_3, etc
+    from_frame : string
+        lets be real, you're probably only going to use 'base'
+    Returns
+    -------
+    :4x4 :obj:`numpy.ndarray` relative pose between frames
+    """
+    listener = tf.TransformListener()
+    attempts, max_attempts, rate = 0, 500, rospy.Rate(20)
+    tag_rot=[]
+    while attempts < max_attempts:
+        try:
+            t = listener.getLatestCommonTime(from_frame, to_frame)
+            tag_pos, tag_rot = listener.lookupTransform(from_frame, to_frame, t)
+            attempts = max_attempts
+        except:
+            # print("exception!")
+            rate.sleep()
+            attempts += 1
+    rot = rotation_from_quaternion(tag_rot)
+    return create_transform_matrix(rot, tag_pos)
 
 def confidence(object_pose, object_velocity, target_pose, t=1):
     obj_x, obj_y, obj_z = object_pose[0], object_pose[1], object_pose[2]
@@ -106,8 +168,14 @@ def callback(msg):
     global obj_pose
     global obj_vel
     global updated
+    g_bc = lookup_transform('camera_optical', 'base_link')
     obj_vel = msg.object_vel
+    homo_vel = np.dot(g_bc, np.array([obj_vel.linear.x, obj_vel.linear.y, obj_vel.linear.z, 0]))
     obj_pose = msg.object_pos
+    homo_pose = np.dot(g_bc, np.array([obj_pose.position.x, obj_pose.position.y, obj_pose.position.z, 1]))
+    obj_vel.linear.x, obj_vel.linear.y, obj_vel.linear.z = homo_vel[0], homo_vel[1], homo_vel[2] 
+    obj_pose.position.x, obj_pose.position.y, obj_pose.position.z = homo_pose[0], homo_pose[1], homo_pose[2]
+    # print(obj_pose)
     updated = True
 
 def send_twist(pub, delay=10):
