@@ -1,3 +1,4 @@
+import imp
 import rospy
 # from std_msgs.msg import String
 
@@ -7,13 +8,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 from casadi import Opti, sin, cos, tan, vertcat, mtimes, sumsqr, sum1, MX, dot
 from mpl_toolkits import mplot3d
+from std_msgs.msg import Int8 
+from darknet_ros_msgs.msg import BoundingBoxes
+from sensor_msgs.msg import Image
 
 
 
 def print_number_objects(data) :
+    print("There are %d objects in this image", data.count)
     rospy.loginfo("There are %d objects in this image", data.count)
 
 def process_bounding_boxes(data):
+    print("processing bounding boxes")
+    global dists
+    global movement
+    global failed_coords
+    global prev_pose
+    
     for bbox in data.bounding_boxes:
         x1 = bbox.xmin
         y1 = bbox.ymin
@@ -38,9 +49,9 @@ def process_bounding_boxes(data):
             dists += [dist]
 
 
-            cam_coord = K_inv@np.array([[ball_xy[0]],
+            cam_coord = np.dot(K_inv,np.array([[ball_xy[0]],
                                 [ball_xy[1]],
-                                [1]])
+                                [1]]))
             # print(cam_coord)
 
 
@@ -73,43 +84,46 @@ def process_bounding_boxes(data):
 def display_image(data):
     pass
     
-def main():
-
-    # information for trajectory plotting
-    K = np.array([[983.24210558  , 0.     ,    549.07355146],
-    [  0.      ,   984.67352261, 368.2628812 ],
-    [  0.     ,      0.     ,      1.        ]])
-    K_inv = np.linalg.inv(K)
-    P = np.eye(3, 4)
-    size_to_dist = lambda a: 0.01714102+15.74211494/a
-
-    failed_coords = []
-    movement = []
-    dists = []
-    prev_pose = np.arange(5)[1:]
-    offset = np.array([0.02, 0.08, 0, 0])
 
 
+# information for trajectory plotting
+K = np.array([[983.24210558  , 0.     ,    549.07355146],
+[  0.      ,   984.67352261, 368.2628812 ],
+[  0.     ,      0.     ,      1.        ]])
+K_inv = np.linalg.inv(K)
+P = np.eye(3, 4)
+size_to_dist = lambda a: 0.01714102+15.74211494/a
+
+failed_coords = []
+movement = []
+dists = []
+prev_pose = np.arange(5)[1:]
+offset = np.array([0.02, 0.08, 0, 0])
 
 
-    rospy.init_node('process_yolo')
-    rospy.Subscriber("object_detector", std_msgs.Int8, print_number_objects)
-    rospy.Subscriber("bounding_boxes", darknet_ros_msgs.BoundingBoxes, process_bounding_boxes)
-    rospy.Subscriber("detection_image", sensor_msgs.Image, display_image)
+
+
+rospy.init_node('process_yolo')
+try: 
+    print("listening")
+    rospy.Subscriber("/darknet_ros/object_detector", Int8, print_number_objects)
+    rospy.Subscriber("/darknet_ros/bounding_boxes", BoundingBoxes, process_bounding_boxes)
+    rospy.Subscriber("/darknet_ros/detection_image", Image, display_image)
     rospy.spin()
+except KeyboardInterrupt:
+    print("Ending")
 
-    # save trajectory
-    fig = plt.figure()
-    ax = plt.axes(projection='3d')
-    full_data = np.array(movement)
-    # print(full_data)
-    # print(dists)
-    ax.plot3D(full_data[5:,0], full_data[5:,1], full_data[5:,2], 'gray')
-    ax.set_title('Object Trajectory in 3D Space')
-    ax.set_xlabel('x')
-    ax.set_ylabel('y')
-    ax.set_zlabel('z')
-    # plt.show()
-    plt.savefig("trajectory.png")
+# save trajectory
+fig = plt.figure()
+ax = plt.axes(projection='3d')
+full_data = np.array(movement)
+# print(full_data)
+# print(dists)
+ax.plot3D(full_data[5:,0], full_data[5:,1], full_data[5:,2], 'gray')
+ax.set_title('Object Trajectory in 3D Space')
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_zlabel('z')
+# plt.show()
+plt.savefig("trajectory.png")
 
-main()
