@@ -6,8 +6,8 @@ import matplotlib.animation as animation
 import argparse
 
 """
-Enya, Osher.
-Set of classes for defining SE(3) trajectories for the end effector of a robot 
+Enya, Osher. Adapted from EE106B Project 1.
+Set of classes for defining SE(3) trajectories for the spherical obstacle trajectory.
 manipulator
 """
 
@@ -432,12 +432,12 @@ def define_trajectories(args):
     """ Define each type of trajectory with the appropriate parameters."""
     trajectory = None
     if args.task == 'line':
-        trajectory = LinearTrajectory(total_time=10, start_position=[0, 10, 5], end_position=[10, 10, 0])
+        trajectory = LinearTrajectory(total_time=10, start_position=[-5, 5, 1], end_position=[5, -5, 1])
     elif args.task == 'circle':
-        trajectory = CircularTrajectory([0, 0, 0], radius=3, total_time=10)
+        trajectory = CircularTrajectory([0, 0,1], radius=3, total_time=10)
     elif args.task == 'polygon':
         # polygon = [[0, 0, 0], [5, 0, 2], [4, 12, 2], [3, 10, 1], [0, 0, 0]]
-        polygon = [[0, 10, 0], [5, 10, 0], [5, 8, 0], [0, 10, 0]]
+        polygon = [[0, 10, 1], [5, 10, 1], [5, 8, 1], [0, 10,1]]
         trajectory = PolygonalTrajectory(polygon, total_time=20)
     return trajectory
 
